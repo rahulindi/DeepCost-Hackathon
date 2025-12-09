@@ -59,18 +59,18 @@ const generateDemoCostData = () => {
         { name: 'Amazon VPC', cost: 38.00 },
         { name: 'Amazon Route 53', cost: 14.00 }
     ];
-    
+
     const totalCost = services.reduce((sum, s) => sum + s.cost, 0);
     const dailyData = [];
     const now = new Date();
-    
+
     // Generate 7 days of data
     for (let i = 6; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
         const dateStr = date.toISOString().split('T')[0];
         const variance = 0.9 + Math.random() * 0.2; // 90-110% variance
-        
+
         services.forEach(service => {
             dailyData.push({
                 date: dateStr,
@@ -79,7 +79,7 @@ const generateDemoCostData = () => {
             });
         });
     }
-    
+
     return {
         totalCost: totalCost.toFixed(2),
         serviceBreakdown: services.map(s => ({ service_name: s.name, total_cost: s.cost.toFixed(2) })),
@@ -91,7 +91,7 @@ const generateDemoCostData = () => {
 const generateDemoForecastData = () => {
     return {
         forecastedCost: 1250.00,
-        period: { start: new Date().toISOString(), end: new Date(Date.now() + 30*24*60*60*1000).toISOString() },
+        period: { start: new Date().toISOString(), end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() },
         isDemo: true
     };
 };
@@ -196,8 +196,8 @@ app.use(cors({
         ];
 
         // Parse ALLOWED_ORIGINS from environment variable
-        const envOrigins = process.env.ALLOWED_ORIGINS 
-            ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+        const envOrigins = process.env.ALLOWED_ORIGINS
+            ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim().replace(/\/$/, '')) // Remove trailing slashes
             : [];
 
         // Allow file:// protocol (for direct HTML file access)
@@ -205,8 +205,11 @@ app.use(cors({
             return callback(null, true);
         }
 
+        // Normalize origin (remove trailing slash if present)
+        const normalizedOrigin = origin.replace(/\/$/, '');
+
         // Check against environment variable origins (exact match)
-        if (envOrigins.includes(origin)) {
+        if (envOrigins.includes(normalizedOrigin)) {
             return callback(null, true);
         }
 
