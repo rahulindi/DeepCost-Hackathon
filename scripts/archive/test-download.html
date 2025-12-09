@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Download</title>
+</head>
+<body>
+    <h1>Test CSV Download</h1>
+    <button onclick="testDownload()">Test Download</button>
+    <div id="log"></div>
+
+    <script>
+        function log(message) {
+            document.getElementById('log').innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+
+        async function testDownload() {
+            log('🧪 Testing ALL export types...');
+            
+            const testCases = [
+                { id: 'sample-cost-summary', name: 'Cost Summary' },
+                { id: 'sample-resource-usage', name: 'Resource Usage' },
+                { id: 'sample-budget-analysis', name: 'Budget Analysis' }
+            ];
+            
+            for (const testCase of testCases) {
+                try {
+                    const url = `http://localhost:3001/api/export/jobs/${testCase.id}/download`;
+                    log(`📡 Testing ${testCase.name}: ${url}`);
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'text/csv'
+                        },
+                        credentials: 'omit'
+                    });
+                    
+                    log(`📊 ${testCase.name} status: ${response.status}`);
+                    
+                    if (response.ok) {
+                        const text = await response.text();
+                        log(`✅ ${testCase.name} length: ${text.length} chars`);
+                        log(`✅ ${testCase.name} preview: ${text.substring(0, 80)}...`);
+                        
+                        // Try to download with unique filename
+                        const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = `${testCase.id}.csv`;
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        
+                        log(`🔄 Triggering download for ${testCase.name}...`);
+                        a.click();
+                        
+                        // Cleanup
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(downloadUrl);
+                        }, 1000);
+                        
+                        log(`✅ ${testCase.name} download triggered`);
+                        
+                        // Wait between downloads
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        
+                    } else {
+                        const errorText = await response.text();
+                        log(`❌ ${testCase.name} error: ${response.status} - ${errorText}`);
+                    }
+                    
+                } catch (error) {
+                    log(`💥 ${testCase.name} exception: ${error.message}`);
+                }
+            }
+            
+            log('🏁 All tests completed!');
+        }
+    </script>
+</body>
+</html>

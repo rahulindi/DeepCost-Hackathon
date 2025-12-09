@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "timestamp": "2025-09-09T19:17:00.796Z",
+  "version": "2.0.0",
+  "features": [
+    "advancedJWT",
+    "sessionManagement",
+    "deviceFingerprinting"
+  ]
+}

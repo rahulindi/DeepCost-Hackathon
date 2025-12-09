@@ -1,0 +1,119 @@
+{
+  "hooks": [
+    {
+      "id": "lint-on-save",
+      "name": "Lint TypeScript on Save",
+      "description": "Automatically run ESLint when TypeScript files are saved",
+      "trigger": {
+        "type": "onFileSave",
+        "pattern": "**/*.{ts,tsx}"
+      },
+      "action": {
+        "type": "shellCommand",
+        "command": "cd frontend && npx eslint --fix ${file}",
+        "showOutput": "onError"
+      },
+      "enabled": true
+    },
+    {
+      "id": "test-on-save",
+      "name": "Run Related Tests",
+      "description": "Run tests related to the modified file",
+      "trigger": {
+        "type": "onFileSave",
+        "pattern": "**/*.{ts,tsx,js}"
+      },
+      "action": {
+        "type": "shellCommand",
+        "command": "cd frontend && npm test -- --findRelatedTests ${file} --passWithNoTests --watchAll=false",
+        "showOutput": "onError"
+      },
+      "enabled": false
+    },
+    {
+      "id": "type-check",
+      "name": "TypeScript Type Check",
+      "description": "Run TypeScript compiler to check for type errors",
+      "trigger": {
+        "type": "onFileSave",
+        "pattern": "frontend/**/*.{ts,tsx}"
+      },
+      "action": {
+        "type": "shellCommand",
+        "command": "cd frontend && npx tsc --noEmit",
+        "showOutput": "onError"
+      },
+      "enabled": true
+    },
+    {
+      "id": "api-docs-update",
+      "name": "Update API Documentation",
+      "description": "Remind to update API docs when routes change",
+      "trigger": {
+        "type": "onFileSave",
+        "pattern": "backend/src/routes/**/*.js"
+      },
+      "action": {
+        "type": "agentMessage",
+        "message": "A route file was modified. Please ensure API documentation is updated if endpoints changed."
+      },
+      "enabled": true
+    },
+    {
+      "id": "security-check",
+      "name": "Security Pattern Check",
+      "description": "Check for common security issues in modified files",
+      "trigger": {
+        "type": "onFileSave",
+        "pattern": "backend/**/*.js"
+      },
+      "action": {
+        "type": "agentMessage",
+        "message": "Please verify this file follows security guidelines: 1) No hardcoded secrets, 2) Parameterized queries, 3) Input validation, 4) User ID filtering for data access."
+      },
+      "enabled": true
+    },
+    {
+      "id": "component-accessibility",
+      "name": "Accessibility Reminder",
+      "description": "Remind about accessibility when React components are modified",
+      "trigger": {
+        "type": "onFileSave",
+        "pattern": "frontend/src/components/**/*.tsx"
+      },
+      "action": {
+        "type": "agentMessage",
+        "message": "Component modified. Please ensure: 1) ARIA labels on interactive elements, 2) Keyboard navigation support, 3) Color contrast compliance, 4) Screen reader compatibility."
+      },
+      "enabled": false
+    },
+    {
+      "id": "manual-full-test",
+      "name": "Run Full Test Suite",
+      "description": "Manually trigger full test suite",
+      "trigger": {
+        "type": "manual"
+      },
+      "action": {
+        "type": "shellCommand",
+        "command": "cd frontend && npm test -- --watchAll=false && cd ../backend && npm test",
+        "showOutput": "always"
+      },
+      "enabled": true
+    },
+    {
+      "id": "manual-build-check",
+      "name": "Production Build Check",
+      "description": "Verify production build succeeds",
+      "trigger": {
+        "type": "manual"
+      },
+      "action": {
+        "type": "shellCommand",
+        "command": "cd frontend && npm run build",
+        "showOutput": "always"
+      },
+      "enabled": true
+    }
+  ]
+}
