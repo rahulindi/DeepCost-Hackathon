@@ -107,13 +107,21 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({ open, onClose }) => {
         try {
             const success = await register(registerUsername, registerEmail, registerPassword);
             if (success) {
-                setSuccess(`✅ Registration successful! Please check ${registerEmail} for a verification link. You must verify your email before logging in.`);
-                // Don't auto-switch tabs - let user read the message and switch manually
-                // Clear form fields but keep the success message visible
+                setSuccess('✅ Registration successful! Account auto-verified for demo. Redirecting to login...');
+
+                // Clear form
                 setRegisterUsername('');
+                setRegisterEmail('');
                 setRegisterPassword('');
                 setConfirmPassword('');
-                // Keep email visible so user can see where verification was sent
+
+                // Auto-switch to Login tab after 3 seconds
+                setTimeout(() => {
+                    setTabValue(0); // Switch to Login tab
+                    setSuccess(''); // Clear success message so it doesn't clutter login view
+                    setError('');
+                }, 3000);
+
             } else {
                 setError('❌ Registration failed. Email might already exist.');
             }
@@ -146,9 +154,9 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({ open, onClose }) => {
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                <Typography 
-                    variant="h5" 
-                    component="div" 
+                <Typography
+                    variant="h5"
+                    component="div"
                     align="center"
                     sx={{
                         display: 'flex',
@@ -157,9 +165,9 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({ open, onClose }) => {
                         gap: 1,
                     }}
                 >
-                    <Box 
-                        component="span" 
-                        sx={{ 
+                    <Box
+                        component="span"
+                        sx={{
                             animation: 'keyFloat 2s ease-in-out infinite',
                             '@keyframes keyFloat': {
                                 '0%, 100%': { transform: 'translateY(0) rotate(-5deg)' },
@@ -170,9 +178,9 @@ export const AuthDialog: React.FC<AuthDialogProps> = ({ open, onClose }) => {
                         🔐
                     </Box>
                     FrankenCost
-                    <Box 
-                        component="span" 
-                        sx={{ 
+                    <Box
+                        component="span"
+                        sx={{
                             animation: 'ghostBounce 2s ease-in-out infinite',
                             '@keyframes ghostBounce': {
                                 '0%, 100%': { transform: 'translateY(0)' },

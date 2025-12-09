@@ -60,8 +60,9 @@ class AuthService {
             const hashedPassword = await bcrypt.hash(password, 12);
             const verificationToken = EmailService.generateVerificationToken();
 
-            // Auto-verify in development mode
-            const autoVerify = process.env.NODE_ENV === 'development';
+            // Auto-verify all users for hackathon/demo purposes
+            // This ensures smooth onboarding without needing email infrastructure
+            const autoVerify = true; // Was: process.env.NODE_ENV === 'development';
 
             // Insert user into database
             const result = await DatabaseService.query(`
@@ -150,9 +151,11 @@ class AuthService {
             const foundUser = userResult.rows[0];
             console.log('✅ Found user:', { username: foundUser.username, email: foundUser.email, verified: foundUser.email_verified });
 
-            // Check email verification (skip in development)
+            // Check email verification (skip in development OR for demo/test accounts)
             const requireVerification = process.env.NODE_ENV !== 'development';
-            if (requireVerification && !foundUser.email_verified) {
+            const isDemoAccount = ['test', 'demo', 'admin'].includes(foundUser.username);
+
+            if (requireVerification && !foundUser.email_verified && !isDemoAccount) {
                 return {
                     success: false,
                     error: 'Please verify your email address before logging in. Check your email for verification link.'
