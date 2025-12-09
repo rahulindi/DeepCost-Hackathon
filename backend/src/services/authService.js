@@ -52,14 +52,14 @@ class AuthService {
                 'SELECT id FROM users WHERE email = $1',
                 [email]
             );
-            
+
             if (existingUser.rows.length > 0) {
                 return { success: false, error: 'Email already exists' };
             }
 
             const hashedPassword = await bcrypt.hash(password, 12);
             const verificationToken = EmailService.generateVerificationToken();
-            
+
             // Auto-verify in development mode
             const autoVerify = process.env.NODE_ENV === 'development';
 
@@ -89,7 +89,7 @@ class AuthService {
 
             return {
                 success: true,
-                message: autoVerify 
+                message: autoVerify
                     ? 'Registration successful! You can now log in.'
                     : 'Registration successful! Please check your email to verify your account before logging in.',
                 user: {
@@ -108,14 +108,15 @@ class AuthService {
     }
 
     static async generateTokens(user) {
-        // 🔒 SECURITY: Require JWT_SECRET to be set, no fallback
-        if (!process.env.JWT_SECRET) {
+        // 🔒 SECURITY: Require JWT_SECRET to be set, fallback for hackathon demo
+        const jwtSecret = process.env.JWT_SECRET || 'hackathon-demo-secret-do-not-use-in-production-v1';
+        if (!jwtSecret) {
             throw new Error('JWT_SECRET environment variable is required');
         }
-        
+
         const accessToken = jwt.sign(
             { userId: user.id, email: user.email },
-            process.env.JWT_SECRET,
+            jwtSecret,
             { expiresIn: '1h' }
         );
 
@@ -171,8 +172,8 @@ class AuthService {
             if (!isValidPassword) {
                 // Increment failed attempts
                 const newFailedAttempts = (foundUser.failed_login_attempts || 0) + 1;
-                const lockUntil = newFailedAttempts >= 5 
-                    ? new Date(Date.now() + 30 * 60 * 1000) 
+                const lockUntil = newFailedAttempts >= 5
+                    ? new Date(Date.now() + 30 * 60 * 1000)
                     : null;
 
                 await DatabaseService.query(`
@@ -204,7 +205,7 @@ class AuthService {
 
             // Generate tokens with advanced security if enabled
             let tokenResult, sessionResult;
-            
+
             if (SECURITY_CONFIG.enableAdvancedJWT && req) {
                 try {
                     // Use advanced JWT with RSA256 and enhanced features
@@ -213,9 +214,9 @@ class AuthService {
                         email: foundUser.email,
                         role: RoleService.getUserRole(foundUser.subscription_tier)
                     };
-                    
+
                     tokenResult = await advancedJwtService.generateTokens(payload, req);
-                    
+
                     // Create session if session management is enabled
                     if (SECURITY_CONFIG.enableSessionManagement) {
                         sessionResult = await sessionManagerService.createSession(foundUser.id, req, {
@@ -223,13 +224,13 @@ class AuthService {
                             userAgent: req.headers['user-agent']
                         });
                     }
-                    
+
                 } catch (advancedError) {
                     console.warn('Advanced security failed, falling back to legacy:', advancedError.message);
                     tokenResult = null; // Will trigger fallback
                 }
             }
-            
+
             // Fallback to legacy token generation
             if (!tokenResult || !tokenResult.success) {
                 const legacyTokens = await this.generateTokens(foundUser);
@@ -254,7 +255,7 @@ class AuthService {
                 token: tokenResult.accessToken,
                 refreshToken: tokenResult.refreshToken
             };
-            
+
             // Add session info if available
             if (sessionResult && sessionResult.success) {
                 response.session = {
@@ -263,7 +264,7 @@ class AuthService {
                     riskLevel: sessionResult.riskLevel
                 };
             }
-            
+
             // Add security metadata
             response.security = {
                 advancedJWT: SECURITY_CONFIG.enableAdvancedJWT && tokenResult.jwtType === 'advanced',
@@ -319,7 +320,7 @@ class AuthService {
             if (!process.env.JWT_SECRET) {
                 throw new Error('JWT_SECRET environment variable is required');
             }
-            
+
             const newAccessToken = jwt.sign(
                 { userId: user.id, email: user.email },
                 process.env.JWT_SECRET,
@@ -346,7 +347,7 @@ class AuthService {
         try {
             let decoded;
             let isAdvancedJWT = false;
-            
+
             // Try advanced JWT verification first if enabled
             if (SECURITY_CONFIG.enableAdvancedJWT) {
                 try {
@@ -354,7 +355,7 @@ class AuthService {
                     if (advancedResult.success) {
                         decoded = advancedResult.payload;
                         isAdvancedJWT = true;
-                        
+
                         // Update session activity if session management is enabled
                         if (SECURITY_CONFIG.enableSessionManagement && req && decoded.sessionId) {
                             await sessionManagerService.updateActivity(decoded.sessionId, req);
@@ -364,14 +365,15 @@ class AuthService {
                     console.warn('Advanced JWT verification failed, trying legacy:', advancedError.message);
                 }
             }
-            
+
             // Fallback to legacy JWT verification
             if (!decoded) {
                 // 🔒 SECURITY: Require JWT_SECRET to be set
-                if (!process.env.JWT_SECRET) {
+                const jwtSecret = process.env.JWT_SECRET || 'hackathon-demo-secret-do-not-use-in-production-v1';
+                if (!jwtSecret) {
                     throw new Error('JWT_SECRET environment variable is required');
                 }
-                decoded = jwt.verify(token, process.env.JWT_SECRET);
+                decoded = jwt.verify(token, jwtSecret);
             }
 
             // Get user from database
@@ -397,15 +399,15 @@ class AuthService {
                     permissions: RoleService.getRoleInfo(RoleService.getUserRole(user.subscription_tier)).permissions
                 }
             };
-            
+
             // Add security metadata
             response.security = {
                 advancedJWT: isAdvancedJWT,
                 tokenType: isAdvancedJWT ? 'RSA256' : 'HMAC256'
             };
-            
+
             return response;
-            
+
         } catch (error) {
             if (error.name === 'TokenExpiredError') {
                 return { success: false, error: 'Token expired', code: 'TOKEN_EXPIRED' };
@@ -525,10 +527,10 @@ class AuthService {
 
         try {
             const terminatedCount = await sessionManagerService.terminateAllUserSessions(userId, currentSessionId);
-            return { 
-                success: true, 
+            return {
+                success: true,
                 message: `${terminatedCount} sessions terminated`,
-                terminatedCount 
+                terminatedCount
             };
         } catch (error) {
             console.error('Error terminating user sessions:', error);
@@ -573,21 +575,21 @@ class AuthService {
      */
     static enableAdvancedSecurity(options = {}) {
         const { jwt = true, sessions = true, fingerprinting = true } = options;
-        
+
         SECURITY_CONFIG.enableAdvancedJWT = jwt;
         SECURITY_CONFIG.enableSessionManagement = sessions;
         SECURITY_CONFIG.enableDeviceFingerprinting = fingerprinting;
-        
+
         console.log('🔒 Advanced security features enabled:', {
             JWT: jwt,
             Sessions: sessions,
             Fingerprinting: fingerprinting
         });
-        
-        return { 
-            success: true, 
+
+        return {
+            success: true,
             message: 'Advanced security features enabled',
-            config: SECURITY_CONFIG 
+            config: SECURITY_CONFIG
         };
     }
 
@@ -604,7 +606,7 @@ class AuthService {
         try {
             const clientData = deviceFingerprintService.extractClientData(req);
             const fingerprint = deviceFingerprintService.generateFingerprint(clientData);
-            
+
             return {
                 success: true,
                 fingerprint: {

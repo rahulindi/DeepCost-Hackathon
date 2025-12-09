@@ -130,14 +130,20 @@ const generalLimiter = rateLimit({
 // Separate, more lenient rate limiting for auth endpoints
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // limit each IP to 20 auth requests per windowMs
+    max: 100, // limit each IP to 100 auth requests per windowMs
     message: { error: 'Too many authentication attempts, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
+        // Skip for OPTIONS requests
+        if (req.method === 'OPTIONS') return true;
         // Skip rate limiting for organization discovery and SAML metadata
         const skipPaths = ['/auth/discover-organization', '/auth/sso/metadata'];
         return skipPaths.some(path => req.path.includes(path));
+    },
+    keyGenerator: (req) => {
+        // Use X-Forwarded-For if available (for Render/Vercel proxies)
+        return req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
     }
 });
 
