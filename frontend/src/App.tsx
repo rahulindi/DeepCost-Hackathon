@@ -102,6 +102,7 @@ function AppContent() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [trendData, setTrendData] = useState<any>(null);
   const [multiAccounts, setMultiAccounts] = useState<any>([]);
+  const [connectionRetries, setConnectionRetries] = useState(0); // 🛑 Track failed connection attempts
   // Removed: alerts, forecast, showAlertForm - features available in dedicated tabs
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [showAwsSetupDialog, setShowAwsSetupDialog] = useState(false);
@@ -206,16 +207,22 @@ function AppContent() {
 
       if (response.data.success) {
         setAwsConnectionStatus('✅ Connected');
+        setConnectionRetries(0); // ✅ Reset retries on success
       } else {
         setAwsConnectionStatus('❌ Not Connected');
         // Enhanced error logging
         const errorMessage = ErrorHandler.getErrorMessage({ response: { data: response.data, status: response.status } });
         console.error('❌ AWS connection error:', errorMessage);
+        setConnectionRetries(prev => prev + 1); // 📈 Increment retry count
       }
-    } catch (error) {
+    } catch (error: any) {
       const errorMessage = ErrorHandler.getErrorMessage(error);
-      console.error('❌ AWS connection check error:', errorMessage);
+      // Only log if we haven't given up yet to keep console clean
+      if (connectionRetries < 3) {
+        console.error('❌ AWS connection check error:', errorMessage);
+      }
       setAwsConnectionStatus('❌ Not Connected');
+      setConnectionRetries(prev => prev + 1); // 📈 Increment retry count
     }
   };
 
@@ -636,10 +643,21 @@ function AppContent() {
       // Health checks every 30 seconds - NO AWS cost
       statusInterval = setInterval(() => {
         checkBackendHealth();
-        checkAwsConnection();
+
+        // 🛑 STOP NAGGING: Only check AWS connection if we haven't failed too many times
+        if (connectionRetries < 3) {
+          checkAwsConnection();
+        } else if (connectionRetries === 3) {
+          console.log('🛑 AWS connection checks paused due to repeated failures (No credentials).');
+          // Increment once more so we don't log this message every 30s
+          setConnectionRetries(4);
+        }
       }, 30000);
 
-      console.log('🔄 Real-time status polling enabled - $0.00 cost');
+      // Only log on initial mount or reset
+      if (connectionRetries === 0) {
+        console.log('🔄 Real-time status polling enabled - $0.00 cost');
+      }
     }
 
     return () => {
@@ -647,7 +665,7 @@ function AppContent() {
         clearInterval(statusInterval);
       }
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, connectionRetries]);
 
   // Auto-load cached data on mount - USER-SPECIFIC
   useEffect(() => {
