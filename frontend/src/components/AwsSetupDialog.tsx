@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { CloudQueue as CloudIcon } from '@mui/icons-material';
 import axios from 'axios';
+import { CredentialManager } from '../utils/CredentialManager';
 
 // API URL - uses environment variable in production
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -73,16 +74,28 @@ export const AwsSetupDialog: React.FC<AwsSetupDialogProps> = ({ open, onClose, o
                 region: region || 'ap-south-1'
             };
 
+            // 1️⃣ Save safely to Client-Side Local Storage (Ephemeral Mode)
+            CredentialManager.saveCredentials(credentialData);
+
+            // 2️⃣ Verify connection with Backend (Session Only)
+            // We still send it here so the backend can validate it immediately
+            // But the backend will be updated to NOT write this to disk
             const response = await axios.post(
                 `${API_URL}/api/aws-setup/credentials`,
                 credentialData,
                 {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        // Inject headers explicitly for immediate verification
+                        'x-aws-access-key': credentialData.accessKeyId || '',
+                        'x-aws-secret-key': credentialData.secretAccessKey || '',
+                        'x-aws-region': credentialData.region || 'us-east-1'
+                    }
                 }
             );
 
             if (response.data.success) {
-                setSuccess('✅ AWS credentials configured successfully!');
+                setSuccess('✅ AWS credentials verified and stored locally!');
                 handleNext();
                 setTimeout(() => {
                     onSuccess();
@@ -90,7 +103,10 @@ export const AwsSetupDialog: React.FC<AwsSetupDialogProps> = ({ open, onClose, o
                 }, 2000);
             }
         } catch (error: any) {
-            setError(error.response?.data?.error || 'Failed to configure AWS credentials');
+            console.error('Connection failed:', error);
+            // If verification fails, clear local storage
+            CredentialManager.clearCredentials();
+            setError(error.response?.data?.error || 'Failed to verify AWS credentials');
         } finally {
             setLoading(false);
         }
@@ -110,20 +126,24 @@ export const AwsSetupDialog: React.FC<AwsSetupDialogProps> = ({ open, onClose, o
     };
 
     const handleDisconnect = async () => {
-        if (!window.confirm('Are you sure you want to disconnect AWS? This will remove all stored credentials.')) {
+        if (!window.confirm('Are you sure you want to disconnect AWS? This will remove credentials from your browser.')) {
             return;
         }
 
         setLoading(true);
         try {
+            // 1️⃣ Clear Client-Side Storage
+            CredentialManager.clearCredentials();
+
             const token = localStorage.getItem('authToken');
+            // 2️⃣ Tell backend to clear any session data
             await axios.delete(
                 `${API_URL}/api/aws-setup/credentials`,
                 {
                     headers: { Authorization: `Bearer ${token}` }
                 }
             );
-            setSuccess('AWS credentials removed successfully');
+            setSuccess('AWS credentials removed from browser');
             setHasExistingCredentials(false);
             resetForm();
             setTimeout(() => {
@@ -288,8 +308,8 @@ export const AwsSetupDialog: React.FC<AwsSetupDialogProps> = ({ open, onClose, o
                         <CloudIcon sx={{ mr: 1, color: '#FF9900' }} />
                         Connect Your AWS Account
                     </Box>
-                    <Button 
-                        color="error" 
+                    <Button
+                        color="error"
                         size="small"
                         onClick={handleDisconnect}
                         disabled={loading}

@@ -88,6 +88,7 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import ErrorHandler from './utils/errorHandler';
 import AIAssistantDebug from './components/AIAssistantDebug';
 // CostCommander removed
+import { CredentialManager } from './utils/CredentialManager';
 
 // API URL - uses environment variable in production
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';

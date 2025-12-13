@@ -44,6 +44,7 @@ const AnomalyDetectionService = require('./services/anomalyDetectionService'); /
 
 // Import middleware - FIXED: correct path
 const { authenticateToken } = require('./middleware/authMiddleware');
+const { extractAwsCredentials } = require('./middleware/awsAuthMiddleware'); // 🔒 NEW: Ephemeral Mode
 
 /**
  * 🎃 DEMO MODE: Generate realistic demo data when AWS credentials not configured
@@ -235,6 +236,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(extractAwsCredentials); // 🔒 Security Middleware: Check for headers
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -333,9 +335,18 @@ app.get('/api/cost-forecast', authenticateToken, async (req, res) => {
         const SimpleAwsCredentials = require('./services/simpleAwsCredentials');
         const AwsCredentialsService = require('./services/awsCredentialsService');
 
-        let credentialsResult = SimpleAwsCredentials.get(dbUserId);
-        if (!credentialsResult.success) {
-            credentialsResult = await AwsCredentialsService.getCredentials(dbUserId);
+        let credentialsResult;
+
+        // 1️⃣ CHECK HEADER (Ephemeral Mode) - Highest Priority
+        if (req.awsCredentials) {
+            console.log('🔑 Using Ephemeral Credentials from Request Header');
+            credentialsResult = { success: true, credentials: req.awsCredentials };
+        } else {
+            // 2️⃣ CHECK DATABASE/CACHE (Legacy Mode)
+            credentialsResult = SimpleAwsCredentials.get(dbUserId);
+            if (!credentialsResult.success) {
+                credentialsResult = await AwsCredentialsService.getCredentials(dbUserId);
+            }
         }
 
         if (!credentialsResult.success) {
@@ -408,10 +419,19 @@ app.get('/api/cost-data', authenticateToken, async (req, res) => {
         const SimpleAwsCredentials = require('./services/simpleAwsCredentials');
         const AwsCredentialsService = require('./services/awsCredentialsService');
 
-        // Try simple credentials first, fallback to encrypted
-        let credentialsResult = SimpleAwsCredentials.get(dbUserId);
-        if (!credentialsResult.success) {
-            credentialsResult = await AwsCredentialsService.getCredentials(dbUserId);
+        let credentialsResult;
+
+        // 1️⃣ CHECK HEADER (Ephemeral Mode) - Highest Priority
+        if (req.awsCredentials) {
+            console.log('🔑 Using Ephemeral Credentials from Request Header');
+            credentialsResult = { success: true, credentials: req.awsCredentials };
+        } else {
+            // 2️⃣ CHECK DATABASE/CACHE (Legacy Mode)
+            // Try simple credentials first, fallback to encrypted
+            credentialsResult = SimpleAwsCredentials.get(dbUserId);
+            if (!credentialsResult.success) {
+                credentialsResult = await AwsCredentialsService.getCredentials(dbUserId);
+            }
         }
 
         if (!credentialsResult.success) {
